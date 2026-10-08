@@ -1,0 +1,123 @@
+{
+  "skill_name": "system-design-audit",
+  "notes": "Behavioural evals. {repo} is a fresh copy of the fixture for each run, {outputs} the run's output folder. Ground truth for the seeded fixtures is in evals/ground-truth/ and must never be visible to the agent under test. Expectations marked [mechanical] are checked by evals/grade_mechanical.py; the rest by a grader agent given the ground truth.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "audit-shop-orders",
+      "fixture": "tests/fixtures/shop-orders",
+      "ground_truth": "evals/ground-truth/shop-orders.json",
+      "prompt": "We're running a big holiday sale next week on our store backend at {repo}. Can you audit the system design and tell me what's going to break? Rank each issue as critical, normal, or good practice, and tell me how to fix it. Save the report to {outputs}/report.md.",
+      "expected_output": "A ranked report that finds the seeded payment, concurrency, job and backup defects, rates the money/data-loss ones Critical, proves each from the code, and doesn't flag the parts that are done right.",
+      "expectations": [
+        "[mechanical] Report saved to outputs/report.md",
+        "[mechanical] Every file:line the report cites exists in the audited code",
+        "[mechanical] No secret values appear in the report",
+        "[mechanical] Report passes validate_report.py --root (the skill's format and evidence contract)",
+        "Every finding carries exactly one of the three requested severities: Critical, Normal or Good Practice",
+        "Finds at least 8 of the 10 core seeded issues",
+        "At least 80% of the matched core issues get a severity in their acceptable range",
+        "No false positive is rated Critical or Normal (nothing on the must-not-flag list, nothing the code disproves)",
+        "Every Critical and Normal finding states a concrete failure scenario (trigger -> impact) and a specific fix",
+        "Recognises at least two things the code does right (e.g. HMAC webhook check, ownership-scoped order reads, fail-fast secrets)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "audit-notify-hub",
+      "fixture": "tests/fixtures/notify-hub",
+      "ground_truth": "evals/ground-truth/notify-hub.json",
+      "prompt": "this is our notification service \u2014 tenants send sms + email through it: {repo}. review the architecture and find all the system design problems, with severity critical / normal / good practice and a fix for each. write it up in {outputs}/report.md",
+      "expected_output": "Finds the cross-tenant read, duplicate-send and retry-multiplier problems, the per-process quota, the unauthenticated receipt webhook and the vanishing failed jobs, in a TypeScript/Node codebase.",
+      "expectations": [
+        "[mechanical] Report saved to outputs/report.md",
+        "[mechanical] Every file:line the report cites exists in the audited code",
+        "[mechanical] No secret values appear in the report",
+        "[mechanical] Report passes validate_report.py --root (the skill's format and evidence contract)",
+        "Every finding carries exactly one of the three requested severities: Critical, Normal or Good Practice",
+        "Finds at least 7 of the 10 core seeded issues",
+        "Rates the cross-tenant read of GET /v1/messages/:id as Critical",
+        "At least 80% of the matched core issues get a severity in their acceptable range",
+        "No false positive is rated Critical or Normal (nothing on the must-not-flag list, nothing the code disproves)",
+        "Every Critical and Normal finding states a concrete failure scenario (trigger -> impact) and a specific fix"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "audit-ledger-clean",
+      "fixture": "tests/fixtures/ledger-clean",
+      "ground_truth": "evals/ground-truth/ledger-clean.json",
+      "prompt": "Before we onboard our first 500 sellers I'd like a system design review of the ledger service at {repo}. Rank anything you find as critical, normal or good practice. Put the report in {outputs}/report.md.",
+      "expected_output": "A calibrated review of a well-designed money service: no invented defects, the safeguards recognised, and ideally the one subtle real defect (an FK key-share vs FOR UPDATE deadlock) found.",
+      "expectations": [
+        "[mechanical] Report saved to outputs/report.md",
+        "[mechanical] Every file:line the report cites exists in the audited code",
+        "[mechanical] Report passes validate_report.py --root (the skill's format and evidence contract)",
+        "Every finding carries exactly one of the three requested severities: Critical, Normal or Good Practice",
+        "No Critical finding is a false positive (each is a real defect the code confirms)",
+        "No Normal finding is a false positive (each is a real defect the code confirms)",
+        "Does not claim any must-not-flag defect (race on balance_minor, non-idempotent transfers, float money, double payouts, f-string SQL injection, missing timeouts)",
+        "Recognises the key safeguards: DB-enforced idempotency, row locks in id order, the transactional outbox, re-runnable payouts",
+        "Finds the transfer deadlock between foreign-key key-share locks and SELECT ... FOR UPDATE (LC-1)",
+        "No finding is rated above the acceptable severity range of its ground-truth entry (known_real_issues or acceptable_findings)"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "review-dispatch-design",
+      "fixture": "tests/fixtures/dispatch-design",
+      "ground_truth": "evals/ground-truth/dispatch-design.json",
+      "prompt": "Our platform team wrote a design doc for the new dispatch system: {repo}/ride-dispatch-design.md. Nothing is built yet. Review the system design before we start: what's risky, ranked critical / normal / good practice, with suggestions. Save your review to {outputs}/report.md.",
+      "expected_output": "A design review that cites the document's lines, catches the write-volume wall, the single cold-starting matcher, the unconditional accept, the double-charge retries and the missing decisions, and doesn't contradict what the doc already handles.",
+      "expectations": [
+        "[mechanical] Report saved to outputs/report.md",
+        "[mechanical] Every file:line the report cites exists in the audited code",
+        "[mechanical] Report passes validate_report.py --root (the skill's format and evidence contract)",
+        "Every finding carries exactly one of the three requested severities: Critical, Normal or Good Practice",
+        "Finds at least 7 of the 9 core design risks",
+        "Rates the retried charge without an idempotency key and the single cold-starting matcher as Critical",
+        "Does not claim ride requests are non-idempotent, that rate limiting is missing, or that card data is stored",
+        "Raises at least one decision the document never makes (e.g. the payment-failure path, a conditional accept, location-data retention) as a finding"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "fix-shop-orders",
+      "fixture": "tests/fixtures/shop-orders + tests/fixtures/reports/shop-orders-audit.md at docs/audits/",
+      "prompt": "There's a system design audit of this repo at {repo}/docs/audits/system-design-audit-2026-10-08.md. Please fix SDA-001 and SDA-002. The virtualenv is at .venv in the repo (tests run with `.venv/bin/python -m unittest discover -s tests` from the repo root). Don't deploy anything. When you're done, write a short summary of what you changed and how you verified it to {outputs}/summary.md.",
+      "expected_output": "Two surgical, test-first fixes: DB-enforced webhook dedupe via a new migration, and an atomic conditional stock update; tests that fail before and pass after; report statuses updated; nothing else touched.",
+      "expectations": [
+        "[mechanical] Repository has changes",
+        "[mechanical] No files outside the two findings were changed (jobs, email, shipping, deploy, old migrations untouched)",
+        "[mechanical] Schema change made in a new migration file, not by editing an applied one",
+        "[mechanical] Test suite passes after the fix",
+        "[mechanical] New or changed tests fail against the original code (they reproduce the findings)",
+        "[mechanical] Audit report status updated for SDA-001 and SDA-002",
+        "[mechanical] Other findings left Open (not silently fixed or closed)",
+        "Duplicate webhook deliveries are deduplicated by a database-enforced unique event id checked before any side effect, not by an in-memory check",
+        "Stock is decremented by one atomic conditional statement (or under a row lock) inside the order transaction; zero rows maps to out-of-stock",
+        "The summary says how each fix was verified and flags what still needs the owner (e.g. running the migration, duplicate rows before the unique index)",
+        "A redelivery after a partly failed first delivery (e.g. the carrier call fails, 5xx) completes the missing side effects without repeating the completed ones"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "audit-real-webjob",
+      "fixture": "a real production worker repository (read-only, not published)",
+      "prompt": "Audit the system design of our scraper worker repo at {repo}: find what will break, ranked critical / normal / good practice, with fixes. Save the report to {outputs}/report.md. Don't change anything in the repo.",
+      "expected_output": "A grounded audit of a large real codebase with honest coverage notes, the revision recorded, every citation real, no secrets copied, and the repo untouched.",
+      "expectations": [
+        "[mechanical] Report saved to outputs/report.md",
+        "[mechanical] Every file:line the report cites exists in the audited code",
+        "[mechanical] No secret values appear in the report",
+        "[mechanical] Report passes validate_report.py --root (the skill's format and evidence contract)",
+        "[mechanical] Audited repository left unmodified",
+        "Every finding carries exactly one of the three requested severities: Critical, Normal or Good Practice",
+        "Records the audited revision (branch and/or commit) in the report",
+        "States coverage honestly: what was read in depth, what was sampled, what was not assessed",
+        "Every Critical finding has a concrete failure scenario grounded in the cited code (spot-check at least three)",
+        "Every Critical finding whose harm depends on something the audit could not see (runtime config, data, another repo, a provider) names that dependency and the check that would confirm it"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+[
+  {"query": "can you go through our backend repo (~/work/payments-api) and tell me what's going to fall over when we 10x traffic in november? rank by severity pls", "should_trigger": true},
+  {"query": "We have a design doc for the new event-sourced inventory service at docs/rfc-042-inventory.md. Before the team starts building, review it for architecture risks and anything we haven't decided that we need to.", "should_trigger": true},
+  {"query": "audit the system design of this monorepo (api/, worker/, infra/terraform). we're onboarding our first enterprise customer next month and I need to know what's critical vs nice-to-have", "should_trigger": true},
+  {"query": "Last night our job queue backed up and some customers got charged twice. We've patched that one, but I want someone to go over the whole system and find other problems of the same kind before they bite us.", "should_trigger": true},
+  {"query": "check this django + celery + postgres repo for reliability and scalability problems: timeouts, retries, race conditions, duplicate jobs, that kind of thing. label each one critical / normal / good practice", "should_trigger": true},
+  {"query": "production readiness review for services/order-service please, we go live monday and I want to know if the architecture will hold", "should_trigger": true},
+  {"query": "we worked through the findings from last month's architecture audit (docs/audits/system-design-audit-2026-09-01.md). can you re-check which ones are actually fixed now and whether anything regressed?", "should_trigger": true},
+  {"query": "Fix SDA-004 and SDA-007 from docs/audits/system-design-audit-2026-10-08.md, test first please", "should_trigger": true},
+  {"query": "what's wrong with this system? three node services that share one mongo database, a cron VM that runs billing, and a redis queue between them. code is in ~/src/platform", "should_trigger": true},
+  {"query": "is our scraper worker built right? it leases accounts from a pool in postgres and runs 7 workers on one VM. I keep worrying about what happens on deploys and when the vendor rate-limits us", "should_trigger": true},
+  {"query": "review PR #482, it wraps the stripe client in a retry decorator. just the diff please", "should_trigger": false},
+  {"query": "test_checkout_concurrent in tests/test_orders.py started failing with an IntegrityError after yesterday's merge, can you figure out why", "should_trigger": false},
+  {"query": "I have a system design interview on friday. walk me through designing a URL shortener: components, database choice, how to scale reads", "should_trigger": false},
+  {"query": "draw an architecture diagram of our services from docker-compose.yml so I can put it in the onboarding doc", "should_trigger": false},
+  {"query": "run an OWASP security audit on our auth endpoints: login, signup, password reset, session cookies", "should_trigger": false},
+  {"query": "add a redis cache in front of GET /products with a 60 second TTL and invalidate it when a product is updated", "should_trigger": false},
+  {"query": "explain how the job queue in worker/queue.py works, I'm new to this codebase", "should_trigger": false},
+  {"query": "our admin dashboard looks generic and cluttered, can you review the design and make it feel more premium", "should_trigger": false},
+  {"query": "write unit tests for app/services/wallet.py covering credit, spend and insufficient balance", "should_trigger": false},
+  {"query": "what's the actual difference between at-least-once and exactly-once delivery, and does kafka really do exactly-once?", "should_trigger": false}
+]

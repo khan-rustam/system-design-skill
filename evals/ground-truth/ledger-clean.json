@@ -1,0 +1,251 @@
+{
+  "fixture": "ledger-clean",
+  "kind": "well-designed-with-one-subtle-defect",
+  "stage": "Production, money (seller payouts)",
+  "acceptable_findings": [
+    {
+      "title": "No metrics/alerting: payout failures and reconcile drift are only visible in logs",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    },
+    {
+      "title": "Invariant reconciliation (ops/reconcile.sql) is run manually weekly; not automated or alerted",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    },
+    {
+      "title": "Outbox relay holds a transaction and row locks while publishing over HTTP (can trip idle_in_transaction_session_timeout; duplicates are deduped downstream), or a permanently rejected row blocks the head of the queue (no attempts or dead-letter column)",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    },
+    {
+      "title": "Bank idempotency-key retention window is unstated while retries span days",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    },
+    {
+      "title": "Single outbox relay replica (throughput / availability of event publishing)",
+      "acceptable": [
+        "Good Practice"
+      ]
+    },
+    {
+      "title": "No rate limiting at the service (relies on gateway)",
+      "acceptable": [
+        "Good Practice"
+      ]
+    },
+    {
+      "title": "Replay returns 201 instead of 200 / response differences on idempotent replay",
+      "acceptable": [
+        "Good Practice"
+      ]
+    },
+    {
+      "title": "Payout job processes sellers sequentially (runtime grows with sellers)",
+      "acceptable": [
+        "Good Practice"
+      ]
+    },
+    {
+      "title": "Retention/archival plan for ledger_entries and outbox",
+      "acceptable": [
+        "Good Practice"
+      ]
+    },
+    {
+      "title": "Missing clearing account makes the payout job fail for that currency",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    },
+    {
+      "title": "A failed payout has no reversal or requeue path: the money moved to clearing stays there (status 'failed' is never re-selected), and only a log line says so",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ]
+    }
+  ],
+  "must_not_flag": [
+    {
+      "claim": "Lost update / race on balance_minor = balance_minor + $2",
+      "why_false": "The increment runs in a transaction after SELECT ... FOR UPDATE on both accounts, guarded by the unique idempotency key (transfers.py)."
+    },
+    {
+      "claim": "Transfers are not idempotent",
+      "why_false": "UNIQUE (from_account, idempotency_key) claimed first with ON CONFLICT DO NOTHING; replay with a different body is 409."
+    },
+    {
+      "claim": "Money stored as float",
+      "why_false": "BIGINT minor units everywhere (ADR 0001)."
+    },
+    {
+      "claim": "Payout job can double-pay / overlap",
+      "why_false": "UNIQUE (seller_id, payout_date), ledger move in the same transaction, bank Idempotency-Key, CronJob concurrencyPolicy Forbid plus pg_try_advisory_lock."
+    },
+    {
+      "claim": "Dual write of events",
+      "why_false": "Transactional outbox written in the same transaction; relay uses FOR UPDATE SKIP LOCKED."
+    },
+    {
+      "claim": "SQL injection via f-string in accounts.py",
+      "why_false": "The f-string interpolates a module constant (SCOPED); all values are bound parameters."
+    },
+    {
+      "claim": "Seller can read another seller's account",
+      "why_false": "Queries filter by seller_scope taken from the verified JWT; services are unscoped by design; 404 on miss."
+    },
+    {
+      "claim": "No timeouts",
+      "why_false": "asyncpg pool timeout/command_timeout, server-side statement_timeout/lock_timeout/idle_in_transaction timeout, httpx timeouts on bank and bus clients."
+    },
+    {
+      "claim": "Unbounded entries listing",
+      "why_false": "Keyset pagination with limit <= 200."
+    },
+    {
+      "claim": "No backups / untested restore",
+      "why_false": "Managed PITR 7 days + 30-day snapshots, quarterly restore rehearsal (README, docs/runbooks/restore.md)."
+    },
+    {
+      "claim": "Readiness check can hang",
+      "why_false": "readyz acquires with timeout=1 and runs SELECT 1 with timeout=1."
+    }
+  ],
+  "strengths": [
+    "DB-enforced idempotency keys with request fingerprint",
+    "Integer minor units; CHECK constraints for non-negative balances",
+    "FOR UPDATE row locks in id order",
+    "Transactional outbox + SKIP LOCKED relay with backoff and jitter, SIGTERM handling",
+    "Re-runnable payouts: unique per seller/day, bank idempotency key, Forbid + advisory lock",
+    "Timeouts at every layer",
+    "Separate liveness/readiness",
+    "Keyset pagination",
+    "ADR documenting the money design; tested PITR restore",
+    "Tests pin replay, concurrency and balance invariants"
+  ],
+  "note": "Written as a clean control. Iteration 1 showed it is not fully clean: a baseline run found and reproduced a real deadlock (LC-1), independently re-verified on PostgreSQL 16. Kept unchanged so iterations stay comparable. It now tests both precision (no invented defects) and depth (the subtle real one).",
+  "known_real_issues": [
+    {
+      "id": "LC-1",
+      "title": "Concurrent transfers deadlock: the transfers INSERT's FK check takes FOR KEY SHARE on both account rows, then SELECT ... FOR UPDATE conflicts with other transactions' key-share locks",
+      "acceptable": [
+        "Critical",
+        "Normal"
+      ],
+      "verified": "reproduced on PostgreSQL 16: FOR UPDATE -> deadlock detected; FOR NO KEY UPDATE -> both commit",
+      "locations": [
+        "app/api/transfers.py:47-71"
+      ]
+    },
+    {
+      "id": "LC-2",
+      "title": "Transfer from/to an unknown account raises a foreign-key violation (500) before the 404 branch",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "app/api/transfers.py:47-75"
+      ]
+    },
+    {
+      "id": "LC-3",
+      "title": "Payout run has no per-seller / per-payout error isolation; an unparseable 2xx from the bank can block the queue",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "app/jobs/payouts.py"
+      ]
+    },
+    {
+      "id": "LC-4",
+      "title": "Bank 401/403 (expired token) treated as a permanent per-payout failure, failing every payout in the run",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "app/bank_client.py:36-39"
+      ]
+    },
+    {
+      "id": "LC-5",
+      "title": "Payouts unique per (seller, date) while balances are per account; no unique (seller_id, currency) for seller accounts",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "migrations/001_init.sql"
+      ]
+    },
+    {
+      "id": "LC-6",
+      "title": "pytest-asyncio strict mode: async fixture declared with plain @pytest.fixture, so DB tests may not run as intended",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "tests/conftest.py:9"
+      ]
+    },
+    {
+      "id": "LC-7",
+      "title": "Restore runbook ignores payouts already sent and sequence rewind (idempotency keys / message ids derived from ids)",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "docs/runbooks/restore.md"
+      ]
+    },
+    {
+      "id": "LC-8",
+      "title": "Any service token can create any transfer between any accounts (no caller allow-list)",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "app/auth.py"
+      ]
+    },
+    {
+      "id": "LC-9",
+      "title": "Every component mounts the bank and bus credentials",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "app/config.py"
+      ]
+    },
+    {
+      "id": "LC-10",
+      "title": "Append-only ledger not enforced by privileges/triggers",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "locations": [
+        "migrations/001_init.sql"
+      ]
+    }
+  ]
+}
