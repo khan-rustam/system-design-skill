@@ -1,0 +1,14 @@
+{
+  "name": "system-design-audit",
+  "owner": {
+    "name": "Rustam Khan"
+  },
+  "description": "A Claude Code skill that audits system design: what will break, ranked and proven, with fixes.",
+  "plugins": [
+    {
+      "name": "system-design-audit",
+      "source": "./",
+      "description": "Find what will break in any system, ranked Critical / Normal / Good Practice, with evidence and right-sized fixes."
+    }
+  ]
+}
