@@ -1,0 +1,13 @@
+[Unit]
+Description=shop-orders API
+After=network.target
+
+[Service]
+User=shop
+WorkingDirectory=/srv/shop-orders
+EnvironmentFile=/srv/shop-orders/.env
+ExecStart=/srv/shop-orders/.venv/bin/gunicorn -c gunicorn.conf.py "app:create_app()"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
