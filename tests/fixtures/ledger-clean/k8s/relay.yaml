@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-outbox-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ledger-outbox-relay }
+  template:
+    metadata:
+      labels: { app: ledger-outbox-relay }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: relay
+          image: registry.example/ledger:2.3.0
+          command: ["python", "-m", "app.outbox_relay"]
+          envFrom: [{ secretRef: { name: ledger-env } }]

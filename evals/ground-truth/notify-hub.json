@@ -1,0 +1,279 @@
+{
+  "fixture": "notify-hub",
+  "kind": "seeded-flaws",
+  "stage": "Production B2B SaaS, billed per message; 3 API + 2 worker replicas",
+  "issues": [
+    {
+      "id": "NH-1",
+      "core": true,
+      "expected": "Critical",
+      "acceptable": [
+        "Critical"
+      ],
+      "title": "Any tenant can read any other tenant's message",
+      "locations": [
+        "src/api/messages.ts:44-51"
+      ],
+      "match_hint": "GET /v1/messages/:id selects by id only, no tenant_id predicate (tenant isolation breach)."
+    },
+    {
+      "id": "NH-2",
+      "core": true,
+      "expected": "Critical",
+      "acceptable": [
+        "Critical",
+        "Normal"
+      ],
+      "title": "Worker sends are not idempotent under retries / redelivery",
+      "locations": [
+        "src/worker/send.ts:5-24",
+        "src/queue.ts:10",
+        "src/providers/textblast.ts:14-34"
+      ],
+      "match_hint": "If the provider accepted the SMS but the job then fails (DB update error, crash, deploy, timeout), BullMQ retries (5 attempts) and sends again; the provider's Idempotency-Key is never used. Duplicate, charged SMS."
+    },
+    {
+      "id": "NH-3",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Stacked retries with fixed delay, no backoff (retry multiplier)",
+      "locations": [
+        "src/providers/textblast.ts:15-32",
+        "src/queue.ts:10"
+      ],
+      "match_hint": "3 in-client attempts with a fixed 1s sleep x 5 job attempts with no backoff = up to 15 sends per message; retries on every error including 4xx."
+    },
+    {
+      "id": "NH-4",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Worker concurrency ignores the provider's 20 req/s limit",
+      "locations": [
+        "src/worker/index.ts:12",
+        "src/config.ts:8"
+      ],
+      "match_hint": "50 concurrent jobs x 2 replicas against a 20 rps limit; 429s feed the retry storm. No client-side rate limiting."
+    },
+    {
+      "id": "NH-5",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Daily quota kept in per-process memory",
+      "locations": [
+        "src/quota.ts:5-25"
+      ],
+      "match_hint": "Map per API replica: effective limit is 3x, resets on every deploy/restart; quota is a billing control."
+    },
+    {
+      "id": "NH-6",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Delivery-receipt webhook not authenticated",
+      "locations": [
+        "src/api/providerWebhooks.ts:7-19"
+      ],
+      "match_hint": "X-TextBlast-Signature is never verified (secret is configured but unused); anyone can mark messages delivered/failed."
+    },
+    {
+      "id": "NH-7",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Failed jobs vanish; messages stuck in queued/sending",
+      "locations": [
+        "src/queue.ts:12",
+        "src/worker/index.ts:15-17",
+        "src/worker/send.ts:13"
+      ],
+      "match_hint": "removeOnFail: true and the failed handler only logs; status is never set to failed, so tenants see 'sending' forever. No dead-letter, no alert."
+    },
+    {
+      "id": "NH-8",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Dual write: row inserted, enqueue may fail",
+      "locations": [
+        "src/api/messages.ts:34-39"
+      ],
+      "match_hint": "INSERT commits, then sendQueue.add; if Redis fails the message stays queued forever (no outbox/sweeper) and the client gets an error and may retry, creating a duplicate."
+    },
+    {
+      "id": "NH-9",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "No idempotency key on POST /v1/messages",
+      "locations": [
+        "src/api/messages.ts:25-42"
+      ],
+      "match_hint": "A client retry after a timeout creates and sends a second message (charged)."
+    },
+    {
+      "id": "NH-10",
+      "core": true,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Critical"
+      ],
+      "title": "Async Express handlers have no error handling",
+      "locations": [
+        "src/api/messages.ts:25",
+        "src/api/auth.ts:9-22"
+      ],
+      "match_hint": "Express 4 does not catch rejected promises from async handlers/middleware; a DB or Redis error leaves the request hanging or crashes the process (unhandled rejection)."
+    },
+    {
+      "id": "NH-11",
+      "core": false,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "title": "Receipt webhook swallows errors and returns 200",
+      "locations": [
+        "src/api/providerWebhooks.ts:15-18"
+      ],
+      "match_hint": "A failed update is logged as a warning and acknowledged, so the provider never retries and the status is lost."
+    },
+    {
+      "id": "NH-12",
+      "core": false,
+      "expected": "Normal",
+      "acceptable": [
+        "Normal",
+        "Good Practice"
+      ],
+      "title": "Unbounded message list",
+      "locations": [
+        "src/api/messages.ts:53-60"
+      ],
+      "match_hint": "GET /v1/messages returns all of a tenant's messages without a limit."
+    },
+    {
+      "id": "NH-13",
+      "core": false,
+      "expected": "Good Practice",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ],
+      "title": "Config silently falls back to localhost / empty secrets",
+      "locations": [
+        "src/config.ts:3-6"
+      ],
+      "match_hint": "DATABASE_URL/REDIS_URL fall back to localhost with default creds; provider key and webhook secret default to empty strings instead of failing at startup."
+    },
+    {
+      "id": "NH-14",
+      "core": false,
+      "expected": "Good Practice",
+      "acceptable": [
+        "Good Practice",
+        "Normal"
+      ],
+      "title": "No graceful shutdown in the worker",
+      "locations": [
+        "src/worker/index.ts:1-19"
+      ],
+      "match_hint": "No SIGTERM handling (worker.close()); deploys interrupt in-flight sends, which are redelivered as stalled jobs (feeds NH-2)."
+    }
+  ],
+  "merge_ok": [
+    [
+      "NH-2",
+      "NH-3"
+    ],
+    [
+      "NH-2",
+      "NH-14"
+    ],
+    [
+      "NH-3",
+      "NH-4"
+    ],
+    [
+      "NH-8",
+      "NH-9"
+    ],
+    [
+      "NH-6",
+      "NH-11"
+    ],
+    [
+      "NH-7",
+      "NH-11"
+    ]
+  ],
+  "bonus": [
+    "Readiness probe /healthz is static (doesn't check DB/Redis); worker has no probes",
+    "Quota counted before the insert succeeds",
+    "Provider error responses retried even for permanent 4xx errors",
+    "No retention policy for message bodies (PII)",
+    "Worker reads a message by id without checking its status (re-sends already 'sent' messages on redelivery)",
+    "pino-http logs request headers by default, so every tenant's x-api-key is written to the logs (found by both iteration-1 runs; real)",
+    "A malformed :id (non-UUID) makes Postgres raise in an async handler, which Express 4 does not catch (specific trigger for NH-10)"
+  ],
+  "must_not_flag": [
+    {
+      "claim": "API keys stored in plaintext",
+      "why_false": "auth.ts hashes the key with sha256 and looks up key_hash, honouring revoked_at."
+    },
+    {
+      "claim": "SQL injection",
+      "why_false": "All queries use $n parameters."
+    },
+    {
+      "claim": "No input validation",
+      "why_false": "zod schema with E.164 regex, length bounds and email validation (messages.ts:12-23)."
+    },
+    {
+      "claim": "DB connections have no timeouts",
+      "why_false": "db.ts sets connectionTimeoutMillis and statement_timeout."
+    },
+    {
+      "claim": "SMS HTTP call has no timeout",
+      "why_false": "textblast.ts uses AbortSignal.timeout(10_000)."
+    },
+    {
+      "claim": "SMTP has no timeouts",
+      "why_false": "email.ts sets connectionTimeout and socketTimeout."
+    }
+  ],
+  "strengths": [
+    "Hashed API keys with revocation",
+    "Tenant taken from the API key, not the request (on create and list)",
+    "zod validation with bounds",
+    "Parameterised SQL",
+    "pg pool with connection and statement timeouts",
+    "Timeouts on SMS and SMTP calls",
+    "Structured logging with request IDs"
+  ]
+}

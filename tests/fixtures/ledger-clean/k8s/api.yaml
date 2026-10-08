@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: ledger-api }
+  template:
+    metadata:
+      labels: { app: ledger-api }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: registry.example/ledger:2.3.0
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+          envFrom: [{ secretRef: { name: ledger-env } }]
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /livez, port: 8080 }
+            periodSeconds: 10

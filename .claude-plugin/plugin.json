@@ -1,0 +1,10 @@
+{
+  "name": "system-design-audit",
+  "version": "1.0.0",
+  "description": "Audit the system design of any codebase, multi-repo product or design doc: find what will break, rank it Critical / Normal / Good Practice with file:line evidence and a failure scenario, and fix it test-first.",
+  "author": { "name": "Rustam Khan" },
+  "homepage": "https://github.com/khan-rustam/system-design-skill",
+  "repository": "https://github.com/khan-rustam/system-design-skill",
+  "license": "MIT",
+  "keywords": ["system-design", "architecture", "audit", "reliability", "code-review", "skills"]
+}

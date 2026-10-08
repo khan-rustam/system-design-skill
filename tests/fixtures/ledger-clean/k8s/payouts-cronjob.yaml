@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ledger-payouts
+spec:
+  schedule: "0 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: payouts
+              image: registry.example/ledger:2.3.0
+              command: ["python", "-m", "app.jobs.payouts"]
+              envFrom: [{ secretRef: { name: ledger-env } }]

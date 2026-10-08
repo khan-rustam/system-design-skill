@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notify-hub-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: notify-hub-worker }
+  template:
+    metadata:
+      labels: { app: notify-hub-worker }
+    spec:
+      containers:
+        - name: worker
+          image: registry.example/notify-hub:1.4.0
+          command: ["node", "dist/worker/index.js"]
+          envFrom: [{ secretRef: { name: notify-hub-env } }]

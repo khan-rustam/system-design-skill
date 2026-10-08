@@ -1,0 +1,4 @@
+CREATE TABLE wallets (
+    user_id  BIGINT PRIMARY KEY REFERENCES users (id),
+    balance  DOUBLE PRECISION NOT NULL DEFAULT 0
+);
