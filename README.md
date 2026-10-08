@@ -51,22 +51,67 @@ once, or a provider that retries.
 
 ## Install
 
-**Claude Code plugin (recommended).** Run these two commands inside Claude Code:
+Run these two commands inside Claude Code:
 
 ```
 /plugin marketplace add khan-rustam/system-design-skill
 /plugin install system-design-audit@system-design-audit
 ```
 
-**Manual.** Copy `skills/system-design-audit/` into `~/.claude/skills/` (every
-project) or into `.claude/skills/` inside one project.
+Or run them from your terminal:
 
-**claude.ai.** Zip the `skills/system-design-audit` folder so that the zip's top
-level is that folder, containing `SKILL.md`. Upload it as a custom skill in your
-claude.ai settings.
+```bash
+claude plugin marketplace add khan-rustam/system-design-skill
+claude plugin install system-design-audit@system-design-audit
+```
+
+That's all. The skill now works in **every repository you open** with Claude
+Code, in any language, and nothing has to be added to the repositories
+themselves.
 
 The two helper scripts need Python 3.8 or newer, standard library only. There
 is nothing to `pip install`.
+
+### Share it with your team
+
+**Option 1: through the plugin.** Inside the repository, run:
+
+```bash
+claude plugin marketplace add khan-rustam/system-design-skill --scope project
+claude plugin install system-design-audit@system-design-audit --scope project
+```
+
+Then commit the `.claude/settings.json` these commands write. It declares
+where the plugin comes from and turns it on for the project:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "system-design-audit": {
+      "source": { "source": "github", "repo": "khan-rustam/system-design-skill" }
+    }
+  },
+  "enabledPlugins": {
+    "system-design-audit@system-design-audit": true
+  }
+}
+```
+
+A teammate who doesn't have the plugin yet runs the two install commands at
+the top of this section once.
+
+**Option 2: inside the repository.** Copy `skills/system-design-audit/` into
+the repository's `.claude/skills/` folder and commit it. Everyone who clones
+the repository then has the skill, with no install step. To update it later,
+copy the folder again.
+
+### Other ways to install
+
+- **Just for you, without the plugin system:** copy `skills/system-design-audit/`
+  into `~/.claude/skills/`.
+- **claude.ai:** zip the `skills/system-design-audit` folder so that the zip's
+  top level is that folder, containing `SKILL.md`. Then upload it as a custom
+  skill in your claude.ai settings.
 
 ## Quick start
 
@@ -82,7 +127,8 @@ fix SDA-002 and SDA-004 from docs/audits/system-design-audit-2026-10-08.md
 we fixed last month's findings: did we fix everything?
 ```
 
-You can also name it: *"use system-design-audit on this repo"*.
+You can also start it by name: type `/system-design-audit:system-design-audit`,
+or ask *"use system-design-audit on this repo"*.
 
 What happens next:
 
@@ -444,6 +490,8 @@ tests/                           68 unit tests and the test systems (fixtures)
 evals/                           behavioural evals, answer keys and the grading script
 assets/                          the images in this README
 .claude-plugin/                  plugin and marketplace manifests
+CHANGELOG.md                     what changed in each version
+CONTRIBUTING.md                  how to report a wrong finding or add a failure pattern
 ```
 
 ## Development
