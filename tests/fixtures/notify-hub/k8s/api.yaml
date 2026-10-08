@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notify-hub-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: notify-hub-api }
+  template:
+    metadata:
+      labels: { app: notify-hub-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.example/notify-hub:1.4.0
+          command: ["node", "dist/api/server.js"]
+          ports: [{ containerPort: 3000 }]
+          envFrom: [{ secretRef: { name: notify-hub-env } }]
+          readinessProbe:
+            httpGet: { path: /healthz, port: 3000 }
