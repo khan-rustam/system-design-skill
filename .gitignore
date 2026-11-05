@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .DS_Store
 *-workspace/
+
+# Playwright MCP snapshots can hold admin secrets (2026-11-05)
+.playwright-mcp/
